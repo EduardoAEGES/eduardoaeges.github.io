@@ -2,79 +2,93 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Buscador de Auditoría</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auditoría - Buscador de Docentes</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <style>
-        body { font-family: Arial; padding: 20px; background: #f4f4f9; }
-        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        input { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px; }
-        #sugerencias { border: 1px solid #ddd; border-top: none; max-height: 150px; overflow-y: auto; display: none; }
-        .sugerencia-item { padding: 10px; cursor: pointer; border-bottom: 1px solid #eee; }
-        .sugerencia-item:hover { background: #e9ecef; }
-        .resultado { margin-top: 20px; padding: 15px; border: 1px solid #28a745; border-radius: 4px; display: none; }
+        :root { --primary: #2563eb; --bg: #f8fafc; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 40px; }
+        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
+        h2 { color: #1e293b; margin-bottom: 1.5rem; text-align: center; }
+        input { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; outline: none; transition: border 0.3s; box-sizing: border-box; }
+        input:focus { border-color: var(--primary); }
+        .results-list { margin-top: 4px; border: 1px solid #e2e8f0; border-radius: 8px; max-height: 200px; overflow-y: auto; display: none; background: white; }
+        .result-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #f1f5f9; }
+        .result-item:hover { background: #f1f5f9; color: var(--primary); }
+        .detail-card { margin-top: 2rem; padding: 1.5rem; border-radius: 8px; background: #eff6ff; border: 1px solid #dbeafe; display: none; }
+        .detail-item { margin-bottom: 8px; color: #1e3a8a; }
+        .label { font-weight: bold; color: #1e293b; margin-right: 8px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>🔍 Buscador de Docentes</h2>
-        <input type="text" id="buscador" placeholder="Escribe un nombre (ej. Jorge)..." oninput="filtrar()">
-        <div id="sugerencias"></div>
 
-        <div id="resultado" class="resultado">
-            <p><strong>DNI:</strong> <span id="res-dni"></span></p>
-            <p><strong>Apellidos:</strong> <span id="res-ape"></span></p>
-            <p><strong>Nombres:</strong> <span id="res-nom"></span></p>
-        </div>
+<div class="card">
+    <h2>🔍 Buscador de Docentes</h2>
+    <input type="text" id="search" placeholder="Escribe un nombre o apellido..." autocomplete="off">
+    <div id="results" class="results-list"></div>
+
+    <div id="detail" class="detail-card">
+        <div class="detail-item"><span class="label">DNI:</span> <span id="det-dni"></span></div>
+        <div class="detail-item"><span class="label">Apellidos:</span> <span id="det-ape"></span></div>
+        <div class="detail-item"><span class="label">Nombres:</span> <span id="det-nom"></span></div>
+        <div class="detail-item"><span class="label">Correo:</span> <span id="det-mail"></span></div>
     </div>
+</div>
 
-    <script>
-        const URL_CSV = 'TU_ENLACE_DE_GOOGLE_SHEETS_AQUÍ';
-        let datos = [];
+<script>
+    const CSV_URL = 'TU_URL_DE_PUBLICACION_CSV_AQUÍ';
+    let database = [];
 
-        // Cargar datos de Google Sheets al abrir la página
-        Papa.parse(URL_CSV, {
-            download: true,
-            header: true,
-            complete: function(results) {
-                datos = results.data;
-                console.log("Datos cargados");
-            }
-        });
-
-        function filtrar() {
-            const query = document.getElementById('buscador').value.toLowerCase();
-            const sugerenciasDiv = document.getElementById('sugerencias');
-            sugerenciasDiv.innerHTML = '';
-            
-            if (query.length < 2) { sugerenciasDiv.style.display = 'none'; return; }
-
-            const filtrados = datos.filter(d => 
-                (d.Nombres && d.Nombres.toLowerCase().includes(query)) || 
-                (d.Apellidos && d.Apellidos.toLowerCase().includes(query))
-            ).slice(0, 5); // Mostrar solo top 5 sugerencias
-
-            if (filtrados.length > 0) {
-                sugerenciasDiv.style.display = 'block';
-                filtrados.forEach(doc => {
-                    const div = document.createElement('div');
-                    div.className = 'sugerencia-item';
-                    div.innerText = `${doc.Apellidos}, ${doc.Nombres}`;
-                    div.onclick = () => mostrarDetalle(doc);
-                    sugerenciasDiv.appendChild(div);
-                });
-            } else {
-                sugerenciasDiv.style.display = 'none';
-            }
+    // Cargar los datos desde Google Sheets al iniciar
+    Papa.parse(CSV_URL, {
+        download: true,
+        header: true,
+        complete: (results) => {
+            database = results.data;
+            console.log("Base de datos cargada");
         }
+    });
 
-        function mostrarDetalle(doc) {
-            document.getElementById('sugerencias').style.display = 'none';
-            document.getElementById('resultado').style.display = 'block';
-            document.getElementById('res-dni').innerText = doc.DNI;
-            document.getElementById('res-ape').innerText = doc.Apellidos;
-            document.getElementById('res-nom').innerText = doc.Nombres;
-            document.getElementById('buscador').value = `${doc.Apellidos}, ${doc.Nombres}`;
+    const searchInput = document.getElementById('search');
+    const resultsDiv = document.getElementById('results');
+    const detailDiv = document.getElementById('detail');
+
+    searchInput.addEventListener('input', (e) => {
+        const value = e.target.value.toLowerCase();
+        resultsDiv.innerHTML = '';
+        
+        if (value.length < 2) { resultsDiv.style.display = 'none'; return; }
+
+        const filtered = database.filter(row => 
+            (row['APELLIDOS Y NOMBRES'] && row['APELLIDOS Y NOMBRES'].toLowerCase().includes(value)) ||
+            (row['DNI'] && row['DNI'].includes(value))
+        ).slice(0, 10); // Mostrar máximo 10 resultados
+
+        if (filtered.length > 0) {
+            resultsDiv.style.display = 'block';
+            filtered.forEach(doc => {
+                const div = document.createElement('div');
+                div.className = 'result-item';
+                div.textContent = doc['APELLIDOS Y NOMBRES'];
+                div.onclick = () => showDetail(doc);
+                resultsDiv.appendChild(div);
+            });
+        } else {
+            resultsDiv.style.display = 'none';
         }
-    </script>
+    });
+
+    function showDetail(doc) {
+        resultsDiv.style.display = 'none';
+        detailDiv.style.display = 'block';
+        document.getElementById('det-dni').textContent = doc['DNI'];
+        // Ajustamos según los encabezados de tu Excel
+        document.getElementById('det-ape').textContent = doc['APELLIDOS Y NOMBRES'];
+        document.getElementById('det-nom').textContent = "Consultado en padrón";
+        document.getElementById('det-mail').textContent = doc['CORREO'];
+        searchInput.value = doc['APELLIDOS Y NOMBRES'];
+    }
+</script>
+
 </body>
 </html>
