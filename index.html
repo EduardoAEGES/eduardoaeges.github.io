@@ -3,49 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Auditoría - Buscador de Docentes</title>
+    <title>Buscador de Docentes - Auditoría</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <style>
-        :root { --primary: #2563eb; --bg: #f8fafc; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); display: flex; justify-content: center; padding: 40px; }
-        .card { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
-        h2 { color: #1e293b; margin-bottom: 1.5rem; text-align: center; }
-        input { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; outline: none; transition: border 0.3s; box-sizing: border-box; }
-        input:focus { border-color: var(--primary); }
-        .results-list { margin-top: 4px; border: 1px solid #e2e8f0; border-radius: 8px; max-height: 200px; overflow-y: auto; display: none; background: white; }
-        .result-item { padding: 12px; cursor: pointer; border-bottom: 1px solid #f1f5f9; }
-        .result-item:hover { background: #f1f5f9; color: var(--primary); }
-        .detail-card { margin-top: 2rem; padding: 1.5rem; border-radius: 8px; background: #eff6ff; border: 1px solid #dbeafe; display: none; }
-        .detail-item { margin-bottom: 8px; color: #1e3a8a; }
-        .label { font-weight: bold; color: #1e293b; margin-right: 8px; }
+        :root { --primary: #2563eb; --bg: #f8fafc; --text: #1e293b; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; padding: 20px; }
+        .card { background: white; padding: 2rem; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 500px; }
+        h2 { text-align: center; margin-bottom: 1.5rem; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .search-box { position: relative; }
+        input { width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 10px; outline: none; transition: all 0.3s; font-size: 16px; box-sizing: border-box; }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
+        .results-list { position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #e2e8f0; border-radius: 8px; margin-top: 5px; max-height: 250px; overflow-y: auto; z-index: 100; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .result-item { padding: 12px 15px; cursor: pointer; border-bottom: 1px solid #f1f5f9; transition: background 0.2s; }
+        .result-item:hover { background: #eff6ff; color: var(--primary); }
+        .detail-card { margin-top: 2rem; padding: 1.5rem; border-radius: 12px; background: #f1f5f9; border: 1px solid #e2e8f0; display: none; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .detail-item { margin-bottom: 10px; font-size: 14px; }
+        .label { font-weight: bold; color: #64748b; text-transform: uppercase; font-size: 11px; display: block; margin-bottom: 2px; }
+        .value { font-size: 16px; color: var(--text); font-weight: 500; }
+        .status { text-align: center; font-size: 12px; color: #94a3b8; margin-top: 10px; }
     </style>
 </head>
 <body>
 
 <div class="card">
     <h2>🔍 Buscador de Docentes</h2>
-    <input type="text" id="search" placeholder="Escribe un nombre o apellido..." autocomplete="off">
-    <div id="results" class="results-list"></div>
+    
+    <div class="search-box">
+        <input type="text" id="search" placeholder="Escribe nombre, apellido o DNI..." autocomplete="off">
+        <div id="results" class="results-list"></div>
+    </div>
 
     <div id="detail" class="detail-card">
-        <div class="detail-item"><span class="label">DNI:</span> <span id="det-dni"></span></div>
-        <div class="detail-item"><span class="label">Apellidos:</span> <span id="det-ape"></span></div>
-        <div class="detail-item"><span class="label">Nombres:</span> <span id="det-nom"></span></div>
-        <div class="detail-item"><span class="label">Correo:</span> <span id="det-mail"></span></div>
+        <div class="detail-item">
+            <span class="label">DNI</span>
+            <span id="det-dni" class="value"></span>
+        </div>
+        <div class="detail-item">
+            <span class="label">Apellidos y Nombres</span>
+            <span id="det-ape" class="value"></span>
+        </div>
+        <div class="detail-item">
+            <span class="label">Correo Institucional</span>
+            <span id="det-mail" class="value"></span>
+        </div>
     </div>
+    <div id="load-status" class="status">Cargando base de datos...</div>
 </div>
 
 <script>
+    // URL de publicación CSV de la pestaña "DOCENTES CONTA 2026"
     const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTTRCkONOGDotUGBikdrYhrXgvV-iLZmSkAbJpoavFBgJXofWDwf1SGWUU_tEmiQ6SDEc9u1H0UsoDX/pub?gid=206055554&single=true&output=csv';
+    
     let database = [];
 
-    // Cargar los datos desde Google Sheets al iniciar
+    // Carga inicial de datos
     Papa.parse(CSV_URL, {
         download: true,
         header: true,
+        skipEmptyLines: true,
         complete: (results) => {
             database = results.data;
-            console.log("Base de datos cargada");
+            document.getElementById('load-status').textContent = "Base de datos lista ✅";
+            console.log("Datos cargados:", database.length);
+        },
+        error: (err) => {
+            document.getElementById('load-status').textContent = "Error al cargar datos ❌";
+            console.error(err);
         }
     });
 
@@ -54,15 +78,20 @@
     const detailDiv = document.getElementById('detail');
 
     searchInput.addEventListener('input', (e) => {
-        const value = e.target.value.toLowerCase();
+        const value = e.target.value.toLowerCase().trim();
         resultsDiv.innerHTML = '';
         
-        if (value.length < 2) { resultsDiv.style.display = 'none'; return; }
+        if (value.length < 2) { 
+            resultsDiv.style.display = 'none'; 
+            return; 
+        }
 
-        const filtered = database.filter(row => 
-            (row['APELLIDOS Y NOMBRES'] && row['APELLIDOS Y NOMBRES'].toLowerCase().includes(value)) ||
-            (row['DNI'] && row['DNI'].includes(value))
-        ).slice(0, 10); // Mostrar máximo 10 resultados
+        // Búsqueda en columnas específicas según tu imagen
+        const filtered = database.filter(row => {
+            const nombre = row['APELLIDOS Y NOMBRES'] ? row['APELLIDOS Y NOMBRES'].toLowerCase() : '';
+            const dni = row['DNI'] ? row['DNI'].toString() : '';
+            return nombre.includes(value) || dni.includes(value);
+        }).slice(0, 8); // Limitamos a 8 resultados visuales
 
         if (filtered.length > 0) {
             resultsDiv.style.display = 'block';
@@ -81,15 +110,22 @@
     function showDetail(doc) {
         resultsDiv.style.display = 'none';
         detailDiv.style.display = 'block';
-        document.getElementById('det-dni').textContent = doc['DNI'];
-        // Ajustamos según los encabezados de tu Excel
-        document.getElementById('det-ape').textContent = doc['APELLIDOS Y NOMBRES'];
-        document.getElementById('det-nom').textContent = "Consultado en padrón";
-        document.getElementById('det-mail').textContent = doc['CORREO'];
+        
+        // Mapeo de campos basado en tu hoja de cálculo
+        document.getElementById('det-dni').textContent = doc['DNI'] || 'No registrado';
+        document.getElementById('det-ape').textContent = doc['APELLIDOS Y NOMBRES'] || 'No registrado';
+        document.getElementById('det-mail').textContent = doc['CORREO'] || 'Sin correo';
+        
         searchInput.value = doc['APELLIDOS Y NOMBRES'];
     }
+
+    // Cerrar lista de resultados al hacer clic fuera
+    document.addEventListener('click', (e) => {
+        if (!searchInput.contains(e.target)) resultsDiv.style.display = 'none';
+    });
 </script>
 
 </body>
 </html>
+
 
